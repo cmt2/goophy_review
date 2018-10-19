@@ -1,0 +1,283 @@
+---
+title: "Geophyte Diversity Plots"
+author: "Carrie Tribble"
+date: "4/26/2018"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, results = 'hold')
+
+library(tidyverse)
+library(maptools)
+library(sp)
+library(raster)
+library(ggmap)
+library(ggthemes)
+library(taxize)
+library(ratelimitr)
+library(knitr)
+
+```
+
+# Introduction
+
+## Data
+This script will use data from the [Kew Checklist of Selected Plant Families (WCSP)](http://wcsp.science.kew.org/) to examine geophyte diversity around the globe. These data were provided by Rafaël Govaerts from WCSP. Please [contact the WCSP](http://wcsp.science.kew.org/contact.do) if you would like a copy of the data; an example of these data can be found [here](http://wcsp.science.kew.org/namedetail.do?name_id=461103). The two-sheet dataset contains species or infraspecifc data on seed plants. The first sheet contains taxonomic and lifeform data on each plant. The second sheet includes information on the range of the plants. These two sheets are linked by a plant ID number. The data resolution is to the species level or variety/ subspecies level. We have left the data mixed like this, so our units are not in described species, but to the smallest rank available.  
+
+Not all plants are represented in this dataset. It currently contains 217 seed plant families. At the end of the document, we show which seed plant families are not represented in the dataset and their taxonomic ranks; this should help us decide to what extent the checklist data is biased. 
+
+## In these analyses, we will examine:
+
+1) Of the plants in the dataset, what percentage are geophytes? 
+
+2) Where are there hotspots of geophyte diversity around the globe? 
+
+3) In which climate types do you tend to find the most geophytes? 
+
+# Set up and loading in data
+
+We will read in the checklist data and identify which plants are geophytes. Here we are excluding pseudobulbs from our analysis because we do not include them in our definition of 'geophyte'. 
+```{r}
+data <- read_csv("../lifeform_fig/AcceptedNames_edited.csv")
+
+data$geophyte <- grepl("geophyte", data$Lifeform_abbreviation, fixed = T)
+
+data$psuedobulb <- grepl("Pseudobulb", data$Lifeform_abbreviation, fixed = T)
+
+data$geo_not_pseudo <- data$geophyte == T & data$psuedobulb == F
+```
+
+# Of the plants in the dataset, what percentage are geophytes?
+
+```{r}
+
+round(100*sum(data$geo_not_pseudo)/length(data$geo_not_pseudo), digits = 2) 
+ 
+```
+
+# Where are there hotspots of geophyte diversity around the globe? 
+
+The finest spatial resolution available for these data is the third level in the TWDG codes. A world map with polygons that correspond to these regions is available on the Kew website: https://www.kew.org/gis/tdwg/ Here, we show several maps where the polygons of regions are colored by various metrics of geophyte diversity. 
+
+
+Read in the location data sheet and the shapefile, and combine all data into a longform data frame that ggplot2 can read. 
+```{r}
+
+read_csv("../lifeform_fig/AcceptedNameLocations.csv") %>%
+  left_join(data, by = c("Plant_name_id" = "accPlant_name_id")) %>%
+  group_by(Area_code_L3) %>%
+  summarise(geophytes_in_region = sum(geo_not_pseudo, na.rm = TRUE),
+            total_plants_in_region = n(),
+            perc_geo = sum(geo_not_pseudo, na.rm = TRUE)/n()) -> geos_by_region
+
+l3_map <- readShapePoly("../lifeform_fig/level3/level3.shp")
+
+l3_map@data %>%
+  left_join(geos_by_region, by = c("LEVEL3_COD" = "Area_code_L3")) %>%
+  mutate(id = rownames(.),
+         geo_density = geophytes_in_region/area(l3_map)) -> l3_map@data
+
+fortify(l3_map, region="id") %>% 
+  left_join(l3_map@data, by="id") -> l3_map.df
+```
+
+
+## Regions colored by the percent of plants that are geophytes
+
+```{r}
+ggplot(l3_map.df) + 
+  geom_polygon(aes(x = long, y = lat, group = group, fill = perc_geo)) +
+  coord_equal() +
+  scale_fill_gradient(low = "white", high = "red") +
+  theme_few() + 
+  theme(axis.line=element_blank(),axis.text.x=element_blank(),
+        axis.text.y=element_blank(),axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        panel.background = element_rect(fill = "aliceblue",
+                                        colour = "aliceblue",
+                                        size = 0.5, linetype = "solid"))
+```
+
+## Regions colored by the number of geophytic plants 
+
+```{r}
+ggplot(l3_map.df) + 
+  geom_polygon(aes(x = long, y = lat, group = group, fill = geophytes_in_region)) +
+  coord_equal() +
+  scale_fill_gradient(low = "white", high = "red") +
+  theme_few() + 
+  theme(axis.line=element_blank(),axis.text.x=element_blank(),
+        axis.text.y=element_blank(),axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        panel.background = element_rect(fill = "aliceblue",
+                                        colour = "aliceblue",
+                                        size = 0.5, linetype = "solid"))
+```
+
+## Regions colored by the density of geophytic species 
+
+Density is calculated by taking the number of geophyte plants / area of the region. 
+
+```{r}
+ggplot(l3_map.df) + 
+  geom_polygon(aes(x = long, y = lat, group = group, fill = log(geo_density))) +
+  coord_equal() +
+  scale_fill_gradient(low = "white", high = "red") +
+  theme_few() + 
+  theme(axis.line=element_blank(),axis.text.x=element_blank(),
+        axis.text.y=element_blank(),axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        panel.background = element_rect(fill = "aliceblue",
+                                        colour = "aliceblue",
+                                        size = 0.5, linetype = "solid"))
+```
+
+# In which climate types do you tend to find the most geophytes?
+
+The data sheet also includes the climate type of each plant. Here we break down the percentage of plants in each climate that are geophytes. 
+
+Read in the data and aggregate by climate.
+```{r}
+
+data %>%
+  group_by(Climate_abbreviation) %>%
+  summarise(total_species = n(),
+            geophytes = sum(geo_not_pseudo),
+            perc_geophytes = 100*sum(geo_not_pseudo)/n()) %>%
+  left_join(unique(data[,c("Climate_abbreviation", "Climate_description")]), 
+        by = "Climate_abbreviation") -> geos_by_climate
+
+  
+geos_by_climate[order(geos_by_climate$perc_geophytes, 
+                      decreasing = TRUE),] -> geos_by_climate
+
+climate_key <- geos_by_climate[,c("Climate_abbreviation","Climate_description")]
+
+labs <- c("Subalp./ Subarc.", "Subtropic.", "Temperate", "(Sub)tropic",
+          "Dry Tropic", "Montane Tropic.", "Desert/ Dry", "Wet Tropic.",
+          "Unknown")
+```
+
+Produce the bar plot. 
+```{r, fig.width = 10, fig.height = 6}
+
+plot <- barplot(geos_by_climate$perc_geophytes,
+        yaxt='n',
+        ylim = range(0, 45),
+        col = c(rep("steelblue4", times = 3), rep("gray87", times = 6)),
+        width = rep(1, times = nrow(geos_by_climate)))
+
+text(x = plot, y = geos_by_climate$perc_geophytes,
+     label = paste(round(geos_by_climate$perc_geophytes, digits = 1), 
+                   "%", sep = ""), 
+     pos = 3, cex = 0.7)
+
+axis(1, at=plot, 
+     labels = labs,
+     tick=FALSE, las=2, line= -0.5 , cex.axis=0.7)
+
+text(x = plot[9], y = 32, cex = 1.5,
+     "Highest geophyte representation of seed 
+      plant flora in Subalpine/ Subarctic, 
+      Subtropical, and Temperate Regions", pos = 2)
+
+```
+
+# How biased are the checklist data? 
+
+The checklist of selected plant families does not represent all seed plant families. If the families included are nonrandom with respect to the number of geophytes, our estimates may be biased. Here, we show which families of seed plants are not in the checklist data, and examine their taxonomy. 
+
+## Which families are not represented in the checklist data? 
+
+Import a list of all seed plant families from theplantlist.org. 
+
+```{r}
+all_families <- colnames(read_csv("../lifeform_fig/families.csv"))
+
+in_checklist_not_in_all <- 
+  unique(data$accFamily)[! unique(data$accFamily) %in% all_families]
+
+in_all_not_in_checklist <- 
+  all_families[! all_families %in% unique(data$accFamily)]
+
+```
+### The following families are in the checklist data but not the plantlist.org data:
+
+`r in_checklist_not_in_all` 
+
+### The following families are in the plantlist.org data but not the checklist data:
+
+`r in_all_not_in_checklist` 
+
+To examine the broader classification of these families, we will download their taxonomy using NCBI taxonomy. 
+```{r, results = "hide"}
+
+# API key for NCBI
+ENTREZ_KEY <- getkey(x = "efcbd6b960ced6685f1f4c07c65b020f5208", 
+                     service = "entrez")
+
+# get taxa ids for the families from NCBI
+# uids <- get_uid(in_all_not_in_checklist)
+
+# rate limit function to avoid api limits being exceeded
+# classification_lim <- limit_rate(f = classification,       
+#                                  rate(n = 10, period = 1)) 
+
+# get the classification from NCBI (but rate limited)
+# out <- classification_lim(uids, db = "ncbi") 
+
+# do this once and save, then reload for knitting doc
+# save(out, file = "out.RData")
+
+load("../lifeform_fig/out.RData")
+
+```
+
+Now, we will create a dataframe with the data arranged by family, with columns containing info on their higher order taxonomy. 
+
+```{r}
+
+taxon_info <- data.frame(family = in_all_not_in_checklist,
+                         order = character(length = length(in_all_not_in_checklist)),
+                         subclass = character(length = length(in_all_not_in_checklist)),
+                         eudicot = logical(length = length(in_all_not_in_checklist)),
+                         monocot = logical(length = length(in_all_not_in_checklist)),
+                         #ANA = logical(length = length(in_all_not_in_checklist)),
+                         gymno  = logical(length = length(in_all_not_in_checklist)),
+                         stringsAsFactors=FALSE)
+
+
+for (i in 1:nrow(taxon_info)) {
+  
+  if (is.na(out[[i]]) == F) {
+    
+    if(sum(grepl("order", out[[i]]$rank)) == 1) {
+      taxon_info[i,"order"] <- out[[i]][which(out[[i]]$rank == "order"),"name"] 
+    } else  {taxon_info[i,"order"] <- NA}
+    
+    if(sum(grepl("subclass", out[[i]]$rank)) == 1) {
+      taxon_info[i,"subclass"] <- out[[i]][which(out[[i]]$rank == "subclass"),"name"] 
+    } else  {taxon_info[i,"subclass"] <- NA}
+    
+    taxon_info[i, "eudicot"] <- sum(grepl("eudicotyledons", out[[i]][,"name"])) == 1
+    taxon_info[i, "monocot"] <- sum(grepl("Liliopsida", out[[i]][,"name"])) == 1
+    taxon_info[i, "gymno"] <- sum(grepl("Acrogymnospermae", out[[i]][,"name"])) == 1
+  } else {
+    
+    taxon_info[i,"order"] <- NA
+    taxon_info[i,"subclass"] <- NA
+    taxon_info[i, "eudicot"] <- NA
+    taxon_info[i, "monocot"] <- NA
+    taxon_info[i, "gymno"] <- NA
+  }
+  
+}
+
+kable(taxon_info)
+
+```
+

@@ -1,10 +1,20 @@
 Geophyte Diversity Plots
 ================
+Carrie Tribble
+4/26/2018
 
 Introduction
 ============
 
-This script will use data from the Kew Checklist of Selected Plant Families to examine geophyte diversity around the globe. This dataset contains species or infraspecifc data on seed plants. We will examine:
+Data
+----
+
+This script will use data from the [Kew Checklist of Selected Plant Families (WCSP)](http://wcsp.science.kew.org/) to examine geophyte diversity around the globe. These data were provided by Rafaël Govaerts from WCSP. Please [contact the WCSP](http://wcsp.science.kew.org/contact.do) if you would like a copy of the data; an example of these data can be found [here](http://wcsp.science.kew.org/namedetail.do?name_id=461103). The two-sheet dataset contains species or infraspecifc data on seed plants. The first sheet contains taxonomic and lifeform data on each plant. The second sheet includes information on the range of the plants. These two sheets are linked by a plant ID number. The data resolution is to the species level or variety/ subspecies level. We have left the data mixed like this, so our units are not in described species, but to the smallest rank available.
+
+Not all plants are represented in this dataset. It currently contains 217 seed plant families. At the end of the document, we show which seed plant families are not represented in the dataset and their taxonomic ranks; this should help us decide to what extent the checklist data is biased.
+
+In these analyses, we will examine:
+-----------------------------------
 
 1.  Of the plants in the dataset, what percentage are geophytes?
 
@@ -12,17 +22,13 @@ This script will use data from the Kew Checklist of Selected Plant Families to e
 
 3.  In which climate types do you tend to find the most geophytes?
 
-These data were provided by Rafaël Govaerts from Kew and include two separate sheets. The first sheet contains taxonomic and lifeform data on each plant. The second sheet includes information on the range of the plants. These two sheets are linked by a plant ID number. The data resolution is to the species level or variety/ subspecies level. I have left the data mixed like this, so our units are not in described species, but to the smallest rank available.
-
-Not all plants are represented in this dataset. It currently contains 217 seed plant families. At the end of the document, I show which seed plant families are not represented in the dataset and their taxonomic ranks; this should help us decide to what extent the checklist data is biased.
-
 Set up and loading in data
 ==========================
 
 We will read in the checklist data and identify which plants are geophytes. Here we are excluding pseudobulbs from our analysis because we do not include them in our definition of 'geophyte'.
 
 ``` r
-data <- read_csv("AcceptedNames_edited.csv")
+data <- read_csv("../lifeform_fig/AcceptedNames_edited.csv")
 
 data$geophyte <- grepl("geophyte", data$Lifeform_abbreviation, fixed = T)
 
@@ -48,14 +54,14 @@ The finest spatial resolution available for these data is the third level in the
 Read in the location data sheet and the shapefile, and combine all data into a longform data frame that ggplot2 can read.
 
 ``` r
-read_csv("AcceptedNameLocations.csv") %>%
+read_csv("../lifeform_fig/AcceptedNameLocations.csv") %>%
   left_join(data, by = c("Plant_name_id" = "accPlant_name_id")) %>%
   group_by(Area_code_L3) %>%
   summarise(geophytes_in_region = sum(geo_not_pseudo, na.rm = TRUE),
             total_plants_in_region = n(),
             perc_geo = sum(geo_not_pseudo, na.rm = TRUE)/n()) -> geos_by_region
 
-l3_map <- readShapePoly("level3/level3.shp")
+l3_map <- readShapePoly("../lifeform_fig/level3/level3.shp")
 
 l3_map@data %>%
   left_join(geos_by_region, by = c("LEVEL3_COD" = "Area_code_L3")) %>%
@@ -84,7 +90,7 @@ ggplot(l3_map.df) +
                                         size = 0.5, linetype = "solid"))
 ```
 
-![](geophyte_diversity_plots_files/figure-markdown_github/unnamed-chunk-4-1.png)
+![](lifeform_figures_files/figure-markdown_github/unnamed-chunk-4-1.png)
 
 Regions colored by the number of geophytic plants
 -------------------------------------------------
@@ -104,7 +110,7 @@ ggplot(l3_map.df) +
                                         size = 0.5, linetype = "solid"))
 ```
 
-![](geophyte_diversity_plots_files/figure-markdown_github/unnamed-chunk-5-1.png)
+![](lifeform_figures_files/figure-markdown_github/unnamed-chunk-5-1.png)
 
 Regions colored by the density of geophytic species
 ---------------------------------------------------
@@ -126,7 +132,7 @@ ggplot(l3_map.df) +
                                         size = 0.5, linetype = "solid"))
 ```
 
-![](geophyte_diversity_plots_files/figure-markdown_github/unnamed-chunk-6-1.png)
+![](lifeform_figures_files/figure-markdown_github/unnamed-chunk-6-1.png)
 
 In which climate types do you tend to find the most geophytes?
 ==============================================================
@@ -179,12 +185,12 @@ text(x = plot[9], y = 32, cex = 1.5,
       Subtropical, and Temperate Regions", pos = 2)
 ```
 
-![](geophyte_diversity_plots_files/figure-markdown_github/unnamed-chunk-8-1.png)
+![](lifeform_figures_files/figure-markdown_github/unnamed-chunk-8-1.png)
 
 How biased are the checklist data?
 ==================================
 
-The checklist of selected plant families does not represent all seed plant families. If the families included are nonrandom with respect to the number of geophytes, our estimates may be biased. Here, I show which families of seed plants are not in the checklist data, and examine their taxonomy.
+The checklist of selected plant families does not represent all seed plant families. If the families included are nonrandom with respect to the number of geophytes, our estimates may be biased. Here, we show which families of seed plants are not in the checklist data, and examine their taxonomy.
 
 Which families are not represented in the checklist data?
 ---------------------------------------------------------
@@ -192,7 +198,7 @@ Which families are not represented in the checklist data?
 Import a list of all seed plant families from theplantlist.org.
 
 ``` r
-all_families <- colnames(read_csv("families.csv"))
+all_families <- colnames(read_csv("../lifeform_fig/families.csv"))
 
 in_checklist_not_in_all <- 
   unique(data$accFamily)[! unique(data$accFamily) %in% all_families]
@@ -229,7 +235,7 @@ ENTREZ_KEY <- getkey(x = "efcbd6b960ced6685f1f4c07c65b020f5208",
 # do this once and save, then reload for knitting doc
 # save(out, file = "out.RData")
 
-load("out.RData")
+load("../lifeform_fig/out.RData")
 ```
 
 Now, we will create a dataframe with the data arranged by family, with columns containing info on their higher order taxonomy.
