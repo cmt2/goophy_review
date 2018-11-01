@@ -1,8 +1,7 @@
 ---
-title: "Geophyte Diversity Plots"
-author: "Carrie Tribble"
-date: "4/26/2018"
-output: github_document
+title: "Supplmental Materials S2: Geophyte diversity plots"
+date: "11/01/2018"
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -277,7 +276,7 @@ for (i in 1:nrow(taxon_info)) {
   
 }
 
-kable(taxon_info)
+kable(taxon_info, caption = "Taxonomic information on familiest that are NOT included in the Kew Checklist of Selected Plant Families.")
 
 ```
 
