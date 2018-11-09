@@ -1,7 +1,6 @@
-Geophyte Diversity Plots
+Supplemental Materials S2: Geophyte diversity plots
 ================
-Carrie Tribble
-4/26/2018
+11/01/2018
 
 Introduction
 ============
@@ -20,7 +19,7 @@ In these analyses, we will examine:
 
 2.  Where are there hotspots of geophyte diversity around the globe?
 
-3.  In which climate types do you tend to find the most geophytes?
+3.  How representative is this dataset of all seed plants?
 
 Set up and loading in data
 ==========================
@@ -49,7 +48,7 @@ round(100*sum(data$geo_not_pseudo)/length(data$geo_not_pseudo), digits = 2)
 Where are there hotspots of geophyte diversity around the globe?
 ================================================================
 
-The finest spatial resolution available for these data is the third level in the TWDG codes. A world map with polygons that correspond to these regions is available on the Kew website: <https://www.kew.org/gis/tdwg/> Here, we show several maps where the polygons of regions are colored by various metrics of geophyte diversity.
+The finest spatial resolution available for these data is the third level of 'botanical countries,' defined by TWDG codes. A world map with polygons that correspond to these regions is available on the Kew website: <https://www.kew.org/gis/tdwg/> Here, we show a map where the polygons of regions are colored by geophyte diversity.
 
 Read in the location data sheet and the shapefile, and combine all data into a longform data frame that ggplot2 can read.
 
@@ -91,101 +90,6 @@ ggplot(l3_map.df) +
 ```
 
 ![](lifeform_figures_files/figure-markdown_github/unnamed-chunk-4-1.png)
-
-Regions colored by the number of geophytic plants
--------------------------------------------------
-
-``` r
-ggplot(l3_map.df) + 
-  geom_polygon(aes(x = long, y = lat, group = group, fill = geophytes_in_region)) +
-  coord_equal() +
-  scale_fill_gradient(low = "white", high = "red") +
-  theme_few() + 
-  theme(axis.line=element_blank(),axis.text.x=element_blank(),
-        axis.text.y=element_blank(),axis.ticks=element_blank(),
-        axis.title.x=element_blank(),
-        axis.title.y=element_blank(),
-        panel.background = element_rect(fill = "aliceblue",
-                                        colour = "aliceblue",
-                                        size = 0.5, linetype = "solid"))
-```
-
-![](lifeform_figures_files/figure-markdown_github/unnamed-chunk-5-1.png)
-
-Regions colored by the density of geophytic species
----------------------------------------------------
-
-Density is calculated by taking the number of geophyte plants / area of the region.
-
-``` r
-ggplot(l3_map.df) + 
-  geom_polygon(aes(x = long, y = lat, group = group, fill = log(geo_density))) +
-  coord_equal() +
-  scale_fill_gradient(low = "white", high = "red") +
-  theme_few() + 
-  theme(axis.line=element_blank(),axis.text.x=element_blank(),
-        axis.text.y=element_blank(),axis.ticks=element_blank(),
-        axis.title.x=element_blank(),
-        axis.title.y=element_blank(),
-        panel.background = element_rect(fill = "aliceblue",
-                                        colour = "aliceblue",
-                                        size = 0.5, linetype = "solid"))
-```
-
-![](lifeform_figures_files/figure-markdown_github/unnamed-chunk-6-1.png)
-
-In which climate types do you tend to find the most geophytes?
-==============================================================
-
-The data sheet also includes the climate type of each plant. Here we break down the percentage of plants in each climate that are geophytes.
-
-Read in the data and aggregate by climate.
-
-``` r
-data %>%
-  group_by(Climate_abbreviation) %>%
-  summarise(total_species = n(),
-            geophytes = sum(geo_not_pseudo),
-            perc_geophytes = 100*sum(geo_not_pseudo)/n()) %>%
-  left_join(unique(data[,c("Climate_abbreviation", "Climate_description")]), 
-        by = "Climate_abbreviation") -> geos_by_climate
-
-  
-geos_by_climate[order(geos_by_climate$perc_geophytes, 
-                      decreasing = TRUE),] -> geos_by_climate
-
-climate_key <- geos_by_climate[,c("Climate_abbreviation","Climate_description")]
-
-labs <- c("Subalp./ Subarc.", "Subtropic.", "Temperate", "(Sub)tropic",
-          "Dry Tropic", "Montane Tropic.", "Desert/ Dry", "Wet Tropic.",
-          "Unknown")
-```
-
-Produce the bar plot.
-
-``` r
-plot <- barplot(geos_by_climate$perc_geophytes,
-        yaxt='n',
-        ylim = range(0, 45),
-        col = c(rep("steelblue4", times = 3), rep("gray87", times = 6)),
-        width = rep(1, times = nrow(geos_by_climate)))
-
-text(x = plot, y = geos_by_climate$perc_geophytes,
-     label = paste(round(geos_by_climate$perc_geophytes, digits = 1), 
-                   "%", sep = ""), 
-     pos = 3, cex = 0.7)
-
-axis(1, at=plot, 
-     labels = labs,
-     tick=FALSE, las=2, line= -0.5 , cex.axis=0.7)
-
-text(x = plot[9], y = 32, cex = 1.5,
-     "Highest geophyte representation of seed 
-      plant flora in Subalpine/ Subarctic, 
-      Subtropical, and Temperate Regions", pos = 2)
-```
-
-![](lifeform_figures_files/figure-markdown_github/unnamed-chunk-8-1.png)
 
 How biased are the checklist data?
 ==================================
@@ -238,7 +142,7 @@ ENTREZ_KEY <- getkey(x = "efcbd6b960ced6685f1f4c07c65b020f5208",
 load("../lifeform_fig/out.RData")
 ```
 
-Now, we will create a dataframe with the data arranged by family, with columns containing info on their higher order taxonomy.
+Now, we will create a dataframe with the data arranged by family, with columns containing information on their higher order taxonomy.
 
 ``` r
 taxon_info <- data.frame(family = in_all_not_in_checklist,
@@ -277,7 +181,7 @@ for (i in 1:nrow(taxon_info)) {
   
 }
 
-kable(taxon_info)
+kable(taxon_info, caption = "Taxonomic information on familiest that are NOT included in the Kew Checklist of Selected Plant Families.")
 ```
 
 | family             | order           | subclass      | eudicot | monocot | gymno |
